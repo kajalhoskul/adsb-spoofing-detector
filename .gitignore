@@ -1,0 +1,6 @@
+__pycache__/
+*.pyc
+.venv/
+data/real_tracks.csv
+data/tracks_with_attacks.csv
+data/detection_results.csv

@@ -1,0 +1,2 @@
+pyModeS>=2.22,<3
+plotly>=5.20
