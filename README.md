@@ -1,5 +1,7 @@
 # ADS-B / GPS Spoofing Detector
 
+[![CI](https://github.com/kajalhoskul/adsb-spoofing-detector/actions/workflows/ci.yml/badge.svg)](https://github.com/kajalhoskul/adsb-spoofing-detector/actions/workflows/ci.yml)
+
 A physics-based GNSS/ADS-B spoofing detector, built on **real decoded
 aircraft trajectories** -- not synthetic data. GNSS spoofing in conflict
 zones is a real, growing, and actively-researched aviation security
@@ -75,6 +77,17 @@ python dashboard/build_dashboard.py         # -> dashboard/dashboard.html
 The dashboard shows both real flight paths with the injected attacks
 plotted well off-track, and an altitude-vs-time view with confirmed
 detections marked.
+
+### Tests
+
+```bash
+pip install -r requirements-dev.txt
+pytest
+```
+
+The tests in `tests/` check each physics rule just inside and just outside
+its limit. GitHub Actions runs them on Python 3.11 to 3.13 for every push
+and pull request.
 
 ## Project layout
 
