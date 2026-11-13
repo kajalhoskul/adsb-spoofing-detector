@@ -34,41 +34,61 @@ IN_PATH = os.path.join(DATA_DIR, "tracks_with_attacks.csv")
 OUT_PATH = os.path.join(DATA_DIR, "detection_results.csv")
 
 
+class ConfirmationTracker:
+    """Per-aircraft state for the two-report confirmation rule.
+
+    Keeps, for each aircraft, the last trusted report (the reference frame)
+    and whether the previous report was already flagged. Feed reports in
+    time order with `process`; each call returns the report's status.
+    """
+
+    def __init__(self):
+        self.last_trusted = {}  # icao -> last clean report
+        self.pending = {}  # icao -> reasons from the previous (unconfirmed) flag
+
+    def process(self, icao, report):
+        """Evaluate one report and update state.
+
+        report: dict with keys lat, lon, altitude_ft, timestamp.
+        Returns (status, reasons), where status is "clean", "pending"
+        (flagged once, held) or "confirmed" (flagged twice in a row).
+        """
+        prev = self.last_trusted.get(icao)
+        if prev is None:
+            flagged_now, reasons = False, []
+        else:
+            result = evaluate(prev, report)
+            flagged_now, reasons = result.flagged, result.reasons
+
+        if not flagged_now:
+            self.last_trusted[icao] = report
+            self.pending.pop(icao, None)
+            return "clean", []
+
+        confirmed = icao in self.pending
+        self.pending[icao] = reasons
+        return ("confirmed" if confirmed else "pending"), reasons
+
+
 def main():
     with open(IN_PATH, newline="") as f:
         rows = list(csv.DictReader(f))
 
-    last_trusted = {}
-    pending = {}  # icao -> reasons from the previous (unconfirmed) flag
+    tracker = ConfirmationTracker()
     results = []
 
     for row in rows:
-        icao = row["icao24"]
         curr = {
             "lat": float(row["lat"]), "lon": float(row["lon"]),
             "altitude_ft": float(row["altitude_ft"]), "timestamp": float(row["timestamp"]),
         }
-
-        prev = last_trusted.get(icao)
-        if prev is None:
-            flagged_now, reasons = False, []
-        else:
-            result = evaluate(prev, curr)
-            flagged_now, reasons = result.flagged, result.reasons
-
-        confirmed = flagged_now and icao in pending
-
-        if flagged_now:
-            pending[icao] = reasons
-        else:
-            last_trusted[icao] = curr
-            pending.pop(icao, None)
+        status, reasons = tracker.process(row["icao24"], curr)
 
         results.append({
             **row,
-            "flagged": confirmed,
-            "reasons": "; ".join(reasons) if flagged_now else "",
-            "status": "confirmed" if confirmed else ("pending" if flagged_now else "clean"),
+            "flagged": status == "confirmed",
+            "reasons": "; ".join(reasons),
+            "status": status,
         })
 
     fieldnames = ["icao24", "timestamp", "lat", "lon", "altitude_ft", "label", "flagged", "reasons", "status"]
